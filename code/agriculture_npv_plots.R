@@ -44,22 +44,30 @@ pv_avoided_tCO2e_inf <- function(S0_tC, d, r, CO2_per_C = 44/12) {
   S0_tC * CO2_per_C * d / (r + d)
 }
 
-theme_pub <- theme_minimal(base_size = 10) +
+theme_pub <- theme_minimal(base_size = 10, base_family = "Arial") +
   theme(
-    panel.grid.minor   = element_blank(),
-    panel.grid.major.x = element_line(colour = "#E5E5E5", linewidth = 0.3),
-    panel.grid.major.y = element_line(colour = "#EFEFEF", linewidth = 0.3),
-    legend.position    = "bottom",
-    legend.title       = element_blank(),
-    plot.title         = element_text(face = "bold"),
-    plot.title.position= "plot",
-    plot.caption.position = "plot",
-    axis.title         = element_text(size = 9),
-    axis.text          = element_text(size = 8),
-    axis.text.x        = element_text(colour = "black"),
-    axis.title.x       = element_text(colour = "black"),
-    axis.text.y        = element_text(colour = "black"),
-    axis.title.y       = element_text(colour = "black")
+    # remove inside grid lines
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    
+    # x/y axis lines only
+    axis.line  = element_line(colour = "black", linewidth = 0.5),
+    axis.ticks = element_line(colour = "black", linewidth = 0.5),
+    
+    # darker text (make plain)
+    axis.title = element_text(size = 10, colour = "black", face = "plain"),
+    axis.text  = element_text(size = 9,  colour = "black", face = "plain"),
+    
+    plot.title = element_text(colour = "black", face = "plain"),
+    plot.subtitle = element_text(colour = "black"),
+    plot.caption  = element_text(colour = "black"),
+    
+    legend.position = "bottom",
+    legend.title    = element_blank(),
+    legend.text     = element_text(colour = "black", face = "plain"),
+    
+    plot.title.position   = "plot",
+    plot.caption.position = "plot"
   )
 
 scenario_levels <- c(
@@ -280,7 +288,7 @@ run_rotation <- function(
   
   p_npv <- ggplot(npv_plot, aes(x = NPV_thousand, colour = scenario)) +
     geom_density(linewidth = 1.1, adjust = 1.0) +
-    geom_vline(aes(xintercept = 0), colour="grey40", linewidth=0.6) +
+    geom_vline(aes(xintercept = 0), colour="grey40", linetype = "22", linewidth=0.6) +
     geom_vline(data = means_df, aes(xintercept = xbar_k, colour = scenario),
                linetype = "22", linewidth = 0.7, show.legend = FALSE) +
     scale_color_scen +
@@ -329,7 +337,7 @@ run_rotation <- function(
       x        = "Break-even price (CAD/tCO2e)", y = NULL
     ) + theme_minimal(base_size = 14) +
     theme(
-      plot.title = element_text(face = "bold", size = 18, margin = margin(b = 4)),
+      plot.title = element_text(face = "plain", size = 18, margin = margin(b = 4)),
       plot.subtitle = element_text(size = 12, colour = "grey30"),
       panel.grid.major.y = element_blank(),
       panel.grid.minor = element_blank(),
@@ -391,7 +399,7 @@ res_2 <- run_rotation("2-Crop Rotation (Swheat–Canola)",
 npv_all_4 <- res_4$npv; npv_all_3 <- res_3$npv; npv_all_2 <- res_2$npv
 
 # --------------------------
-# 6) Multi-panel journal figures (NPV & BEP) — unchanged
+# 6) Multi-panel journal figures (NPV & BEP)
 # --------------------------
 make_npv_density_panel <- function(npv_df, panel_title, xlim_k = c(-3,10), breaks_k = seq(-2,10,2)) {
   df <- npv_df %>% dplyr::mutate(NPV_thousand = NPV_per_ha_adj / 1000)
@@ -517,3 +525,186 @@ bep_table_print <- bep_table %>%
 print(bep_table_print)
 
 readr::write_csv(bep_table, "data/BEP_summary_all_rotations.csv")
+
+theme_pub <- theme_minimal(base_size = 10, base_family = "Arial") +
+  theme(
+    # remove inside grid lines
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    
+    # x/y axis lines only
+    axis.line  = element_line(colour = "black", linewidth = 0.5),
+    axis.ticks = element_line(colour = "black", linewidth = 0.5),
+    
+    # darker text (make plain)
+    axis.title = element_text(size = 14, colour = "black", face = "plain"),
+    axis.text  = element_text(size = 13,  colour = "black", face = "plain"),
+    
+    plot.title = element_text(colour = "black", face = "plain"),
+    plot.subtitle = element_text(colour = "black"),
+    plot.caption  = element_text(colour = "black"),
+    
+    legend.position = "bottom",
+    legend.title    = element_blank(),
+    legend.text     = element_text(colour = "black", face = "plain"),
+    
+    plot.title.position   = "plot",
+    plot.caption.position = "plot"
+  )
+
+
+# --------------------------
+# 9) NEW: NPV plots — ONLY Baseline vs No BRM Programs (CAD/ha)
+#     - NO legend
+#     - Center panel titles
+#     - Keep x-limits (-2000, 5500)
+# --------------------------
+scen_keep <- c("Baseline", "No BRM Programs")
+
+# (You can keep labels + scale even if legend is removed; harmless)
+scen_labels <- c(
+  "Baseline"        = "Baseline with BRM programs",
+  "No BRM Programs" = "Baseline without BRM programs"
+)
+
+scale_color_keep <- scale_color_manual(
+  values = scenario_cols[scen_keep],
+  breaks = scen_keep,
+  limits = scen_keep,
+  labels = scen_labels,
+  drop   = TRUE
+)
+
+make_npv_density_panel_keep <- function(npv_df, panel_title,
+                                        xlim_ha = NULL,
+                                        break_step = 1000) {
+  
+  df <- npv_df %>%
+    dplyr::filter(as.character(scenario) %in% scen_keep) %>%
+    dplyr::mutate(
+      scenario = factor(as.character(scenario), levels = scen_keep),
+      NPV_ha   = NPV_per_ha_adj
+    )
+  
+  if (is.null(xlim_ha)) {
+    rng <- range(df$NPV_ha, na.rm = TRUE)
+    pad <- 0.04 * diff(rng)
+    xlim_ha <- c(rng[1] - pad, rng[2] + pad)
+  }
+  
+  means_df <- df %>%
+    dplyr::group_by(scenario) %>%
+    dplyr::summarise(xbar = mean(NPV_ha, na.rm = TRUE), .groups = "drop")
+  
+  ggplot(df, aes(x = NPV_ha, colour = scenario)) +
+    geom_vline(xintercept = 0, colour = "grey40", linetype = "22", linewidth = 0.9) +
+    geom_density(linewidth = 0.9, adjust = 1, na.rm = TRUE) +
+    geom_vline(
+      data = means_df,
+      aes(xintercept = xbar, colour = scenario),
+      linetype = "22", linewidth = 0.9, show.legend = FALSE
+    ) +
+    scale_color_keep +
+    scale_x_continuous(
+      breaks = seq(floor(xlim_ha[1] / break_step) * break_step,
+                   ceiling(xlim_ha[2] / break_step) * break_step,
+                   by = break_step),
+      labels = scales::label_number(accuracy = 1),
+      expand = c(0, 0)
+    ) +
+    coord_cartesian(xlim = xlim_ha) +
+    scale_y_continuous(labels = scales::label_number(accuracy = 0.0001)) +
+    labs(title = panel_title, x = "NPV (CAD/ha)", y = "Density") +
+    theme_pub +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "plain", size = 16),
+      legend.position = "none"   # <-- remove legend
+    )
+}
+
+# Force x-axis limits (CAD/ha)
+npv_xlim_keep <- c(-2000, 5500)
+
+# Choose tick spacing (CAD/ha)
+break_step_keep <- 1000
+
+# Two panels (4-crop and 2-crop)
+p_npv_keep_4 <- make_npv_density_panel_keep(
+  npv_all_4,
+  "4-Crop Rotation (Spring wheat - Canola - Barley - Oats)",
+  xlim_ha = npv_xlim_keep,
+  break_step = break_step_keep
+)
+
+p_npv_keep_2 <- make_npv_density_panel_keep(
+  npv_all_2,
+  "2-Crop Rotation (Spring wheat - Canola)",
+  xlim_ha = npv_xlim_keep,
+  break_step = break_step_keep
+)
+
+# Combine (no legend to collect)
+npv_figure_keep <- (p_npv_keep_4 / p_npv_keep_2)
+
+npv_figure_keep
+
+ggsave(
+  "figures/Figure_NPV_Baseline_NoBRM_rotations.png",
+  npv_figure_keep,
+  dpi = 600, width = 150, height = 170, units = "mm"
+)
+
+make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 394, decay_d = 0.02) {
+  iter_df <- npv_df %>%
+    dplyr::mutate(
+      PV_avoided_tCO2e = pv_avoided_tCO2e_inf(S0_tC_per_ha, decay_d, discount_rate),
+      BEP = NPV_per_ha_adj / PV_avoided_tCO2e
+    )
+  sum_df <- iter_df %>%
+    dplyr::group_by(scenario) %>%
+    dplyr::summarise(
+      mean_bep = mean(BEP, na.rm = TRUE),
+      p05 = quantile(BEP, 0.05, na.rm = TRUE),
+      p95 = quantile(BEP, 0.95, na.rm = TRUE),
+      .groups="drop"
+    ) %>%
+    dplyr::mutate(label = sprintf("%.2f", mean_bep))
+  
+  ggplot(sum_df, aes(y = scenario, x = mean_bep, colour = scenario)) +
+    geom_linerange(aes(xmin = p05, xmax = p95), linewidth = 0.9, show.legend = FALSE) +
+    geom_point(size = 1.8, show.legend = FALSE) +
+    geom_text(aes(label = label, x = mean_bep),
+              nudge_y = 0.12, vjust = 0, size = 5, colour = "black", show.legend = FALSE) +
+    geom_vline(xintercept = 0, linewidth = 0.7, linetype = "dashed", colour = "grey40") +
+    scale_color_scen +
+    scale_y_discrete(limits = rev(scenario_levels),
+                     labels = function(x) stringr::str_wrap(x, width = 30)) +
+    scale_x_continuous(labels = scales::label_number(accuracy = 0.01),
+                       expand = expansion(mult = c(0.01, 0.06))) +
+    coord_cartesian(clip = "off") +
+    labs(title = panel_title, x = "Break-even price (CAD/tCO2e)", y = NULL) +
+    theme_pub +
+    theme(
+      plot.margin = margin(5.5, 12, 5.5, 5.5),
+      panel.grid.major.y = element_blank(),
+      panel.grid.major.x = element_line(linetype = "dashed", colour = "#d9d9d9")
+    )
+}
+
+p_bep_2 <- make_bep_panel(
+  npv_all_2,
+  "Spring wheat - Canola (394 t C ha⁻¹ with 2% annual decay rate)"
+) +
+  theme(
+    plot.title = element_text(face = "plain", hjust = 0.5, size = 16)
+  )
+
+bep_figure <- p_bep_2 +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+bep_figure
+
+
+ggsave("figures/Figure_BEP.png", bep_figure, dpi = 600,
+       width = 180, height = 170, units = "mm")

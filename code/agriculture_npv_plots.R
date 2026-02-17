@@ -71,21 +71,20 @@ theme_pub <- theme_minimal(base_size = 10, base_family = "Arial") +
   )
 
 scenario_levels <- c(
-  "Baseline","No BRM Programs",
-  "Low Price (-15%)","High Price (+15%)",
-  "Low Input Cost (-15%)","High Input Cost (+15%)",
-  "Lower Discount (7%)","Terminal Growth (g = 5%)"
+  "Baseline","No BRM",
+  "Price -15%","Price +15%",
+  "Input Cost -15%","Input Cost +15%",
+  "Discount rate = 7%"
 )
 
 scenario_cols <- c(
   "Baseline"                 = "#F8766D",
-  "No BRM Programs"          = "#CD9600",
-  "High Price (+15%)"        = "#00796B",
-  "Low Price (-15%)"         = "#7FD4C6",
-  "Low Input Cost (-15%)"    = "#6A3D9A",
-  "High Input Cost (+15%)"   = "#C9B3E8",
-  "Lower Discount (7%)"      = "#1E88E5",
-  "Terminal Growth (g = 5%)" = "#9FC5E8"
+  "No BRM"                   = "#CD9600",
+  "Price +15%"               = "#00796B",
+  "Price -15%"               = "#7FD4C6",
+  "Input Cost -15%"          = "#6A3D9A",
+  "Input Cost +15%"          = "#C9B3E8",
+  "Discount rate = 7%"       = "#1E88E5"
 )
 scale_color_scen <- scale_color_manual(limits = scenario_levels, values = scenario_cols, drop = FALSE)
 scale_fill_scen  <- scale_fill_manual(limits = scenario_levels, values = scenario_cols, drop = FALSE)
@@ -102,7 +101,7 @@ run_rotation <- function(
     coverage_level = 0.80,
     machinery_fix_per_acre = 73.04,
     total_acres = sum(acres),
-    S0_tC_per_ha = 394,
+    S0_tC_per_ha = 1180,
     decay_d = 0.02
 ) {
   stopifnot(setequal(names(acres), crops))
@@ -252,13 +251,12 @@ run_rotation <- function(
   
   scenarios <- list(
     run_scenario("Baseline",                1.00, 1.00, 0.10, TRUE,  FALSE, 0.00),
-    run_scenario("No BRM Programs",         1.00, 1.00, 0.10, FALSE, FALSE, 0.00),
-    run_scenario("Low Price (-15%)",        0.85, 1.00, 0.10, TRUE,  TRUE,  0.00),
-    run_scenario("High Price (+15%)",       1.15, 1.00, 0.10, TRUE,  TRUE,  0.00),
-    run_scenario("Low Input Cost (-15%)",   1.00, 0.85, 0.10, TRUE,  FALSE, 0.00),
-    run_scenario("High Input Cost (+15%)",  1.00, 1.15, 0.10, TRUE,  FALSE, 0.00),
-    run_scenario("Lower Discount (7%)",     1.00, 1.00, 0.07, TRUE,  FALSE, 0.00),
-    run_scenario("Terminal Growth (g = 5%)",1.00, 1.00, 0.10, TRUE,  FALSE, 0.05)
+    run_scenario("No BRM",         1.00, 1.00, 0.10, FALSE, FALSE, 0.00),
+    run_scenario("Price -15%",        0.85, 1.00, 0.10, TRUE,  TRUE,  0.00),
+    run_scenario("Price +15%",       1.15, 1.00, 0.10, TRUE,  TRUE,  0.00),
+    run_scenario("Input Cost -15%",   1.00, 0.85, 0.10, TRUE,  FALSE, 0.00),
+    run_scenario("Input Cost +15%",  1.00, 1.15, 0.10, TRUE,  FALSE, 0.00),
+    run_scenario("Discount rate = 7%",     1.00, 1.00, 0.07, TRUE,  FALSE, 0.00)
   )
   
   npv_all <- dplyr::bind_rows(scenarios) %>%
@@ -417,7 +415,7 @@ make_npv_density_panel <- function(npv_df, panel_title, xlim_k = c(-3,10), break
     theme_pub
 }
 
-make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 394, decay_d = 0.02) {
+make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0.02) {
   iter_df <- npv_df %>%
     dplyr::mutate(
       PV_avoided_tCO2e = pv_avoided_tCO2e_inf(S0_tC_per_ha, decay_d, discount_rate),
@@ -476,7 +474,7 @@ npv_figure
 
 p_bep_4 <- make_bep_panel(npv_all_4, "a.") + theme(plot.title = element_text(face="plain"))
 p_bep_3 <- make_bep_panel(npv_all_3, "b.") + theme(plot.title = element_text(face="plain"))
-p_bep_2 <- make_bep_panel(npv_all_2, "c.Spring wheat - Canola (394 t C ha⁻¹ with 2% annual decay rate)") + theme(plot.title = element_text(face="plain"))
+p_bep_2 <- make_bep_panel(npv_all_2, "c.Spring wheat - Canola (1180 t C ha⁻¹ with 2% annual decay rate)") + theme(plot.title = element_text(face="plain"))
 
 bep_figure <- (p_bep_4 / p_bep_3 / p_bep_2) + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
@@ -554,17 +552,17 @@ theme_pub <- theme_minimal(base_size = 10, base_family = "Arial") +
 
 
 # --------------------------
-# 9) NEW: NPV plots — ONLY Baseline vs No BRM Programs (CAD/ha)
+# 9) NEW: NPV plots — ONLY Baseline vs No BRM (CAD/ha)
 #     - NO legend
 #     - Center panel titles
 #     - Keep x-limits (-2000, 5500)
 # --------------------------
-scen_keep <- c("Baseline", "No BRM Programs")
+scen_keep <- c("Baseline", "No BRM")
 
 # (You can keep labels + scale even if legend is removed; harmless)
 scen_labels <- c(
   "Baseline"        = "Baseline with BRM programs",
-  "No BRM Programs" = "Baseline without BRM programs"
+  "No BRM" = "Baseline without BRM programs"
 )
 
 scale_color_keep <- scale_color_manual(
@@ -631,14 +629,14 @@ break_step_keep <- 1000
 # Two panels (4-crop and 2-crop)
 p_npv_keep_4 <- make_npv_density_panel_keep(
   npv_all_4,
-  "4-Crop Rotation (Spring wheat - Canola - Barley - Oats)",
+  "Panel A",
   xlim_ha = npv_xlim_keep,
   break_step = break_step_keep
 )
 
 p_npv_keep_2 <- make_npv_density_panel_keep(
   npv_all_2,
-  "2-Crop Rotation (Spring wheat - Canola)",
+  "Panel B",
   xlim_ha = npv_xlim_keep,
   break_step = break_step_keep
 )
@@ -654,7 +652,7 @@ ggsave(
   dpi = 600, width = 150, height = 170, units = "mm"
 )
 
-make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 394, decay_d = 0.02) {
+make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0.02) {
   iter_df <- npv_df %>%
     dplyr::mutate(
       PV_avoided_tCO2e = pv_avoided_tCO2e_inf(S0_tC_per_ha, decay_d, discount_rate),
@@ -682,7 +680,7 @@ make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 394, decay_d = 0.
     scale_x_continuous(labels = scales::label_number(accuracy = 0.01),
                        expand = expansion(mult = c(0.01, 0.06))) +
     coord_cartesian(clip = "off") +
-    labs(title = panel_title, x = "Break-even price (CAD/tCO2e)", y = NULL) +
+    labs(title = panel_title, x = "Break-even carbon price ($/tCO\u2082e)", y = NULL) +
     theme_pub +
     theme(
       plot.margin = margin(5.5, 12, 5.5, 5.5),
@@ -691,20 +689,38 @@ make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 394, decay_d = 0.
     )
 }
 
-p_bep_2 <- make_bep_panel(
-  npv_all_2,
-  "Spring wheat - Canola (394 t C ha⁻¹ with 2% annual decay rate)"
-) +
-  theme(
-    plot.title = element_text(face = "plain", hjust = 0.5, size = 16)
-  )
+# Common x-axis for BOTH panels
+common_bep_x <- scale_x_continuous(
+  limits = c(-2.5, 9),
+  breaks = seq(0, 8, 2),
+  labels = label_number(accuracy = 0.01),  # two decimals
+  expand = c(0, 0)
+)
+library(patchwork)
 
-bep_figure <- p_bep_2 +
+top_title <- "Appendix D2: 1180 t C ha^-1 initial stock & 2% annual decay"
+p_bep_4 <- make_bep_panel(npv_all_4, "SW-Canola-Barley-Oat") +
+  common_bep_x +
+  theme(plot.title = element_text(face = "plain", hjust = 0.5, size = 16))
+
+p_bep_2 <- make_bep_panel(npv_all_2, "SW-Canola") +
+  common_bep_x +
+  theme(plot.title = element_text(face = "plain", hjust = 0.5, size = 16))
+
+bep_figure <- (p_bep_4 / p_bep_2) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
+bep_figure <- bep_figure +
+  plot_annotation(
+    title = top_title,
+    theme = theme(
+      plot.title = element_text(hjust = 0.5, face = "plain", size = 16),
+      plot.margin = margin(10, 12, 5.5, 5.5)  # extra top room for the title
+    )
+  )
+
 bep_figure
 
-
-ggsave("figures/Figure_BEP.png", bep_figure, dpi = 600,
-       width = 180, height = 170, units = "mm")
+ggsave("figures/Figure_1180_0.02.png", bep_figure, dpi = 600,
+       width = 180, height = 230, units = "mm")

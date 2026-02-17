@@ -160,6 +160,10 @@ summary(fit)
 b <- coef(fit)          # SUR coefficients for mean recursion
 resid_cov <- fit$residCov  # Cross-equation covariance for shocks
 
+s <- summary(fit)
+s$system$OLS.R2
+s$system$McElroy.R2
+
 # --- Simulation settings (unchanged) ---
 n_periods <- 20
 n_sim     <- 1000

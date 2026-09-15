@@ -17,9 +17,17 @@ library(actuar)
 # Import Excel
 data <- read.csv("data/Crop Input Cost in Crop Alternative.csv")
 colnames(data) <- tolower(colnames(data))
+dev.off()
+
+par(mfrow = c(1, 1))
+par(mar = c(4, 4, 2, 1))
 
 # Quick peek
 head(data)
+descdist(data$swheat, boot =1000)
+descdist(data$oats, boot =1000)
+descdist(data$barley, boot =1000)
+descdist(data$canola, boot =1000)
 
 # --------------------------
 # Spring wheat input costs
@@ -104,6 +112,52 @@ cdfcomp(list(fn.o,  fln.o,  fll.o,  fu.o,  fg.o,  fw.o), legendtext = plot.legen
 cdfcomp(list(fn.b,  fln.b,  fll.b,  fu.b,  fg.b,  fw.b), legendtext = plot.legend, main = "Barley")
 cdfcomp(list(fn.c,  fln.c,  fll.c,  fu.c,  fg.c,  fw.c), legendtext = plot.legend, main = "Canola")
 
+# ==========================================================
+# Four-panel diagnostic plots for selected log-logistic fits
+# ==========================================================
+
+# Reset graphics
+graphics.off()
+
+# --------------------------
+# Spring wheat
+# --------------------------
+par(mar = c(4, 4, 3, 1))
+
+plot(
+  fll.sw,
+  demp = TRUE
+)
+
+# --------------------------
+# Oats
+# --------------------------
+par(mar = c(4, 4, 3, 1))
+
+plot(
+  fll.o,
+  demp = TRUE
+)
+
+# --------------------------
+# Barley
+# --------------------------
+par(mar = c(4, 4, 3, 1))
+
+plot(
+  fll.b,
+  demp = TRUE
+)
+
+# --------------------------
+# Canola
+# --------------------------
+par(mar = c(4, 4, 3, 1))
+
+plot(
+  fll.c,
+  demp = TRUE
+)
 
 # ===========================================================
 # PART B — Truncated log-logistic simulation of input costs
@@ -123,7 +177,7 @@ rtrunc_llogis <- function(n, shape, scale, lower, upper) {
 # --- Simulation setup ---
 set.seed(123)   # critical for result reproducibility
 years      <- 20
-iterations <- 1000
+iterations <- 10000
 total_obs  <- years * iterations
 
 crops <- c("swheat", "oats", "barley", "canola")
@@ -139,7 +193,6 @@ simulated_inputcost <- data.frame(
   Year      = rep(1:years, each = iterations),
   Iteration = rep(1:iterations, times = years)
 )
-
 # --- Simulate crop input costs (per crop, same loop logic) ---
 for (i in seq_along(crops)) {
   crop_name <- crops[i]
@@ -167,3 +220,4 @@ write.csv(
   "data/simulated_inputcost.csv",
   row.names = FALSE
 )
+

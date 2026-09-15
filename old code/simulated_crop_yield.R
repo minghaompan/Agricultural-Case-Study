@@ -61,7 +61,7 @@ res_sw <- detrend_to_base_year(data, "swheat", base_year = 2024)
 data$trend_swheat <- res_sw$trend
 data$detrended_swheat <- res_sw$detrended
 summary(res_sw$model)
-
+par(mfrow = c(1, 1))
 plot(data$cropyear, data$swheat, type = "l",
      main = "Spring Wheat: Original & De-trended (Base Year 2024)",
      xlab = "Year", ylab = "Yield")
@@ -290,7 +290,7 @@ gofstat(list(fn.c, fln.c, fll.c, fu.c, fg.c, fw.c),
 # --------- Diagnostic plots (kept) ----------
 plot.legend <- c("Normal", "Lognormal", "Log-logistic", "uniform", "Gamma", "Weibull")
 
-par(mfrow = c(2, 2))
+par(mfrow = c(1, 1))
 qqcomp(list(fn.sw, fln.sw, fll.sw, fu.sw, fg.sw, fw.sw), legendtext = plot.legend, main = "Spring Wheat")
 qqcomp(list(fn.o,  fln.o,  fll.o,  fu.o,  fg.o,  fw.o),  legendtext = plot.legend, main = "Oats")
 qqcomp(list(fn.b,  fln.b,  fll.b,  fu.b,  fg.b,  fw.b),  legendtext = plot.legend, main = "Barley")
@@ -321,7 +321,7 @@ cdfcomp(list(fn.c, fln.c, fll.c, fu.c, fg.c, fw.c),
 
 # 1) Simulation sizes 
 n_years <- 20
-n_iter  <- 1000
+n_iter  <- 10000
 n_sim   <- n_years * n_iter  # 20,000
 
 # 2) Weibull parameters per crop (shape α, scale β) 

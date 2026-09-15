@@ -4,6 +4,7 @@
 # terminal value, scenarios, diagnostics, BEP + figures.
 # Adds: BEP summary table with mean, SD, p05, p50, p95 for
 #       all rotations x scenarios (no SD plotted).
+# NOTE: NPV is NOT changed. For BEP only, negative NPV is floored at 0.
 # ============================================================
 
 suppressPackageStartupMessages({
@@ -29,19 +30,25 @@ sim_cost  <- read.csv(cost_path)  |> rename_with(tolower)
 # Common seed + drainage draw (shared across all rotations)
 set.seed(123)
 all_iterations <- sort(unique(sim_price$iteration))
-stopifnot(length(all_iterations) == 1000)
+stopifnot(length(all_iterations) == 10000)
 drainage_draw <- tibble(
   iteration = all_iterations,
   drain_cost_per_ha = runif(length(all_iterations), min = 494, max = 1600)
 )
 
 # --------------------------
-# 2) Helpers (PV of avoided CO2e; theme; colors; scenario list)
+# 2) Helpers (PV of avoided CO2e; BEP helper; theme; colors; scenario list)
 # --------------------------
 # Closed-form PV under geometric decay (infinite horizon), discrete-time:
 # PV_avoided_tCO2e = S0_tC * (44/12) * d / (r + d)
 pv_avoided_tCO2e_inf <- function(S0_tC, d, r, CO2_per_C = 44/12) {
   S0_tC * CO2_per_C * d / (r + d)
+}
+
+# BEP helper:
+# Keep NPV unchanged in the model, but floor negative NPV at 0 for BEP only
+calc_bep_zero_floor <- function(npv_per_ha, pv_avoided_tCO2e) {
+  pmax(npv_per_ha, 0) / pv_avoided_tCO2e
 }
 
 theme_pub <- theme_minimal(base_size = 10, base_family = "Arial") +
@@ -102,7 +109,7 @@ run_rotation <- function(
     machinery_fix_per_acre = 73.04,
     total_acres = sum(acres),
     S0_tC_per_ha = 1180,
-    decay_d = 0.02
+    decay_d = 0.05
 ) {
   stopifnot(setequal(names(acres), crops))
   stopifnot(setequal(names(raay_year1), crops))
@@ -251,11 +258,11 @@ run_rotation <- function(
   
   scenarios <- list(
     run_scenario("Baseline",                1.00, 1.00, 0.10, TRUE,  FALSE, 0.00),
-    run_scenario("No BRM",         1.00, 1.00, 0.10, FALSE, FALSE, 0.00),
-    run_scenario("Price -15%",        0.85, 1.00, 0.10, TRUE,  TRUE,  0.00),
-    run_scenario("Price +15%",       1.15, 1.00, 0.10, TRUE,  TRUE,  0.00),
-    run_scenario("Input Cost -15%",   1.00, 0.85, 0.10, TRUE,  FALSE, 0.00),
-    run_scenario("Input Cost +15%",  1.00, 1.15, 0.10, TRUE,  FALSE, 0.00),
+    run_scenario("No BRM",                  1.00, 1.00, 0.10, FALSE, FALSE, 0.00),
+    run_scenario("Price -15%",             0.85, 1.00, 0.10, TRUE,  TRUE,  0.00),
+    run_scenario("Price +15%",             1.15, 1.00, 0.10, TRUE,  TRUE,  0.00),
+    run_scenario("Input Cost -15%",        1.00, 0.85, 0.10, TRUE,  FALSE, 0.00),
+    run_scenario("Input Cost +15%",        1.00, 1.15, 0.10, TRUE,  FALSE, 0.00),
     run_scenario("Discount rate = 7%",     1.00, 1.00, 0.07, TRUE,  FALSE, 0.00)
   )
   
@@ -301,10 +308,11 @@ run_rotation <- function(
   print(p_npv)
   
   # BEP per iteration using each scenario's discount rate
+  # Negative NPV is floored at 0 only for BEP
   bep_df <- npv_all %>%
     dplyr::mutate(
-      PV_avoided_tCO2e    = pv_avoided_tCO2e_inf(S0_tC_per_ha, decay_d, discount_rate),
-      BEP_CAD_per_tCO2e   = NPV_per_ha_adj / PV_avoided_tCO2e
+      PV_avoided_tCO2e  = pv_avoided_tCO2e_inf(S0_tC_per_ha, decay_d, discount_rate),
+      BEP_CAD_per_tCO2e = calc_bep_zero_floor(NPV_per_ha_adj, PV_avoided_tCO2e)
     )
   
   bep_sum <- bep_df %>%
@@ -351,8 +359,10 @@ run_rotation <- function(
     p_npv   = p_npv,
     p_bep   = p_bep,
     bep_iter= bep_df %>%
-      dplyr::transmute(iteration, scenario, discount_rate,
-                       BEP_CAD_per_tCO2e = BEP_CAD_per_tCO2e)
+      dplyr::transmute(
+        iteration, scenario, discount_rate,
+        BEP_CAD_per_tCO2e = BEP_CAD_per_tCO2e
+      )
   )
 }
 
@@ -360,74 +370,89 @@ run_rotation <- function(
 # 4) Define rotations (identical splits & parameters as your scripts)
 # --------------------------
 total_acres <- 1920
+
 # 4-crop: swheat 27%, canola 41%, barley 18%, oats remainder
-acres_4 <- c(swheat = round(total_acres * 0.27),
-             canola = round(total_acres * 0.41),
-             barley = round(total_acres * 0.18))
+acres_4 <- c(
+  swheat = round(total_acres * 0.27),
+  canola = round(total_acres * 0.41),
+  barley = round(total_acres * 0.18)
+)
 acres_4 <- c(acres_4, oats = total_acres - sum(acres_4))
-raay_4   <- c(swheat = 1.706, oats = 1.796, barley = 1.629, canola = 0.880)
-sip_4    <- c(swheat = 285,   oats = 250,   barley = 245,   canola = 575)
+raay_4 <- c(swheat = 1.756, oats = 1.843, barley = 1.661, canola = 0.889)
+sip_4  <- c(swheat = 285,   oats = 250,   barley = 245,   canola = 575)
 
 # 3-crop: swheat 32%, canola 47%, barley 21%
-acres_3 <- round(total_acres * c(swheat=0.32, canola=0.47, barley=0.21))
-raay_3  <- c(swheat = 1.706, barley = 1.629, canola = 0.880)
+acres_3 <- round(total_acres * c(swheat = 0.32, canola = 0.47, barley = 0.21))
+raay_3  <- c(swheat = 1.756, barley = 1.661, canola = 0.889)
 sip_3   <- c(swheat = 285,   barley = 245,   canola = 575)
 
 # 2-crop: swheat 40%, canola 60%
-acres_2 <- c(swheat = round(total_acres * 0.40),
-             canola = total_acres - round(total_acres * 0.40))
-raay_2  <- c(swheat = 1.706, canola = 0.880)
-sip_2   <- c(swheat = 285,   canola = 575)
+acres_2 <- c(
+  swheat = round(total_acres * 0.40),
+  canola = total_acres - round(total_acres * 0.40)
+)
+raay_2 <- c(swheat = 1.756, canola = 0.889)
+sip_2  <- c(swheat = 285,   canola = 575)
 
 # --------------------------
 # 5) Run all rotations (plots kept)
 # --------------------------
-res_4 <- run_rotation("4-Crop Rotation (Swheat–Canola–Barley–Oats)",
-                      crops = c("swheat","canola","barley","oats"),
-                      acres = acres_4, raay_year1 = raay_4, sip_base = sip_4)
+res_4 <- run_rotation(
+  "4-Crop Rotation (Swheat–Canola–Barley–Oats)",
+  crops = c("swheat", "canola", "barley", "oats"),
+  acres = acres_4, raay_year1 = raay_4, sip_base = sip_4
+)
 
-res_3 <- run_rotation("3-Crop Rotation (Swheat–Canola–Barley)",
-                      crops = c("swheat","barley","canola"),
-                      acres = acres_3, raay_year1 = raay_3, sip_base = sip_3)
+res_3 <- run_rotation(
+  "3-Crop Rotation (Swheat–Canola–Barley)",
+  crops = c("swheat", "barley", "canola"),
+  acres = acres_3, raay_year1 = raay_3, sip_base = sip_3
+)
 
-res_2 <- run_rotation("2-Crop Rotation (Swheat–Canola)",
-                      crops = c("swheat","canola"),
-                      acres = acres_2, raay_year1 = raay_2, sip_base = sip_2)
+res_2 <- run_rotation(
+  "2-Crop Rotation (Swheat–Canola)",
+  crops = c("swheat", "canola"),
+  acres = acres_2, raay_year1 = raay_2, sip_base = sip_2
+)
 
-npv_all_4 <- res_4$npv; npv_all_3 <- res_3$npv; npv_all_2 <- res_2$npv
+npv_all_4 <- res_4$npv
+npv_all_3 <- res_3$npv
+npv_all_2 <- res_2$npv
 
 # --------------------------
 # 6) Multi-panel journal figures (NPV & BEP)
 # --------------------------
-make_npv_density_panel <- function(npv_df, panel_title, xlim_k = c(-3,10), breaks_k = seq(-2,10,2)) {
+make_npv_density_panel <- function(npv_df, panel_title, xlim_k = c(-3, 10), breaks_k = seq(-2, 10, 2)) {
   df <- npv_df %>% dplyr::mutate(NPV_thousand = NPV_per_ha_adj / 1000)
-  means_df <- df %>% dplyr::group_by(scenario) %>% dplyr::summarise(xbar_k = mean(NPV_thousand, na.rm=TRUE), .groups="drop")
+  means_df <- df %>% dplyr::group_by(scenario) %>% dplyr::summarise(xbar_k = mean(NPV_thousand, na.rm = TRUE), .groups = "drop")
+  
   ggplot(df, aes(x = NPV_thousand, colour = scenario)) +
     geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.6) +
     geom_density(linewidth = 0.9, adjust = 1, na.rm = TRUE) +
     geom_vline(data = means_df, aes(xintercept = xbar_k, colour = scenario),
                linetype = "22", linewidth = 0.7, show.legend = FALSE) +
     scale_color_scen +
-    scale_x_continuous(breaks = breaks_k, labels = label_number(accuracy = 0.1), expand = c(0,0)) +
+    scale_x_continuous(breaks = breaks_k, labels = label_number(accuracy = 0.1), expand = c(0, 0)) +
     coord_cartesian(xlim = xlim_k) +
     scale_y_continuous(labels = label_number(accuracy = 0.1)) +
     labs(title = panel_title, x = "NPV (thousand CAD/ha)", y = "Density") +
     theme_pub
 }
 
-make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0.02) {
+make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0.05) {
   iter_df <- npv_df %>%
     dplyr::mutate(
       PV_avoided_tCO2e = pv_avoided_tCO2e_inf(S0_tC_per_ha, decay_d, discount_rate),
-      BEP = NPV_per_ha_adj / PV_avoided_tCO2e
+      BEP = calc_bep_zero_floor(NPV_per_ha_adj, PV_avoided_tCO2e)
     )
+  
   sum_df <- iter_df %>%
     dplyr::group_by(scenario) %>%
     dplyr::summarise(
       mean_bep = mean(BEP, na.rm = TRUE),
       p05 = quantile(BEP, 0.05, na.rm = TRUE),
       p95 = quantile(BEP, 0.95, na.rm = TRUE),
-      .groups="drop"
+      .groups = "drop"
     ) %>%
     dplyr::mutate(label = sprintf("%.2f", mean_bep))
   
@@ -460,21 +485,24 @@ npv_bind <- dplyr::bind_rows(
 ) %>%
   dplyr::mutate(NPV_thousand = NPV_per_ha_adj / 1000)
 
-npv_xlim   <- c(max(-3, floor(min(npv_bind$NPV_thousand, na.rm = TRUE))),
-                min(10, ceiling(max(npv_bind$NPV_thousand, na.rm = TRUE))))
+npv_xlim <- c(
+  max(-3, floor(min(npv_bind$NPV_thousand, na.rm = TRUE))),
+  min(10, ceiling(max(npv_bind$NPV_thousand, na.rm = TRUE)))
+)
 npv_breaks <- seq(-2, 10, 2)
 
-p_npv_4 <- make_npv_density_panel(npv_all_4, "a.", npv_xlim, npv_breaks) + theme(plot.title = element_text(face="plain"))
-p_npv_3 <- make_npv_density_panel(npv_all_3, "b.", npv_xlim, npv_breaks) + theme(plot.title = element_text(face="plain"))
-p_npv_2 <- make_npv_density_panel(npv_all_2, "c.", npv_xlim, npv_breaks) + theme(plot.title = element_text(face="plain"))
+p_npv_4 <- make_npv_density_panel(npv_all_4, "a.", npv_xlim, npv_breaks) + theme(plot.title = element_text(face = "plain"))
+p_npv_3 <- make_npv_density_panel(npv_all_3, "b.", npv_xlim, npv_breaks) + theme(plot.title = element_text(face = "plain"))
+p_npv_2 <- make_npv_density_panel(npv_all_2, "c.", npv_xlim, npv_breaks) + theme(plot.title = element_text(face = "plain"))
 
 npv_figure <- (p_npv_4 / p_npv_3 / p_npv_2) + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 npv_figure
 
-p_bep_4 <- make_bep_panel(npv_all_4, "a.") + theme(plot.title = element_text(face="plain"))
-p_bep_3 <- make_bep_panel(npv_all_3, "b.") + theme(plot.title = element_text(face="plain"))
-p_bep_2 <- make_bep_panel(npv_all_2, "c.Spring wheat - Canola (1180 t C ha⁻¹ with 2% annual decay rate)") + theme(plot.title = element_text(face="plain"))
+p_bep_4 <- make_bep_panel(npv_all_4, "a.") + theme(plot.title = element_text(face = "plain"))
+p_bep_3 <- make_bep_panel(npv_all_3, "b.") + theme(plot.title = element_text(face = "plain"))
+p_bep_2 <- make_bep_panel(npv_all_2, "c.Spring wheat - Canola (1180 t C ha⁻¹ with 5% annual decay rate)") +
+  theme(plot.title = element_text(face = "plain"))
 
 bep_figure <- (p_bep_4 / p_bep_3 / p_bep_2) + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
@@ -550,7 +578,6 @@ theme_pub <- theme_minimal(base_size = 10, base_family = "Arial") +
     plot.caption.position = "plot"
   )
 
-
 # --------------------------
 # 9) NEW: NPV plots — ONLY Baseline vs No BRM (CAD/ha)
 #     - NO legend
@@ -561,8 +588,8 @@ scen_keep <- c("Baseline", "No BRM")
 
 # (You can keep labels + scale even if legend is removed; harmless)
 scen_labels <- c(
-  "Baseline"        = "Baseline with BRM programs",
-  "No BRM" = "Baseline without BRM programs"
+  "Baseline" = "Baseline with BRM programs",
+  "No BRM"   = "Baseline without BRM programs"
 )
 
 scale_color_keep <- scale_color_manual(
@@ -604,19 +631,21 @@ make_npv_density_panel_keep <- function(npv_df, panel_title,
     ) +
     scale_color_keep +
     scale_x_continuous(
-      breaks = seq(floor(xlim_ha[1] / break_step) * break_step,
-                   ceiling(xlim_ha[2] / break_step) * break_step,
-                   by = break_step),
+      breaks = seq(
+        floor(xlim_ha[1] / break_step) * break_step,
+        ceiling(xlim_ha[2] / break_step) * break_step,
+        by = break_step
+      ),
       labels = scales::label_number(accuracy = 1),
       expand = c(0, 0)
     ) +
     coord_cartesian(xlim = xlim_ha) +
     scale_y_continuous(labels = scales::label_number(accuracy = 0.0001)) +
-    labs(title = panel_title, x = "NPV (CAD/ha)", y = "Density") +
+    labs(title = panel_title, x = "NPV ($/ha)", y = "Density") +
     theme_pub +
     theme(
       plot.title = element_text(hjust = 0.5, face = "plain", size = 16),
-      legend.position = "none"   # <-- remove legend
+      legend.position = "none"
     )
 }
 
@@ -652,19 +681,23 @@ ggsave(
   dpi = 600, width = 150, height = 170, units = "mm"
 )
 
-make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0.02) {
+# --------------------------
+# 10) BEP panels (redefined later in your script) — updated here too
+# --------------------------
+make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0.05) {
   iter_df <- npv_df %>%
     dplyr::mutate(
       PV_avoided_tCO2e = pv_avoided_tCO2e_inf(S0_tC_per_ha, decay_d, discount_rate),
-      BEP = NPV_per_ha_adj / PV_avoided_tCO2e
+      BEP = calc_bep_zero_floor(NPV_per_ha_adj, PV_avoided_tCO2e)
     )
+  
   sum_df <- iter_df %>%
     dplyr::group_by(scenario) %>%
     dplyr::summarise(
       mean_bep = mean(BEP, na.rm = TRUE),
       p05 = quantile(BEP, 0.05, na.rm = TRUE),
       p95 = quantile(BEP, 0.95, na.rm = TRUE),
-      .groups="drop"
+      .groups = "drop"
     ) %>%
     dplyr::mutate(label = sprintf("%.2f", mean_bep))
   
@@ -673,7 +706,6 @@ make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0
     geom_point(size = 1.8, show.legend = FALSE) +
     geom_text(aes(label = label, x = mean_bep),
               nudge_y = 0.12, vjust = 0, size = 5, colour = "black", show.legend = FALSE) +
-    geom_vline(xintercept = 0, linewidth = 0.7, linetype = "dashed", colour = "grey40") +
     scale_color_scen +
     scale_y_discrete(limits = rev(scenario_levels),
                      labels = function(x) stringr::str_wrap(x, width = 30)) +
@@ -691,19 +723,21 @@ make_bep_panel <- function(npv_df, panel_title, S0_tC_per_ha = 1180, decay_d = 0
 
 # Common x-axis for BOTH panels
 common_bep_x <- scale_x_continuous(
-  limits = c(-2.5, 9),
+  limits = c(0, 9),
   breaks = seq(0, 8, 2),
-  labels = label_number(accuracy = 0.01),  # two decimals
+  labels = label_number(accuracy = 0.01),
   expand = c(0, 0)
 )
+
 library(patchwork)
 
 top_title <- "Appendix D2: 1180 t C ha^-1 initial stock & 2% annual decay"
-p_bep_4 <- make_bep_panel(npv_all_4, "SW-Canola-Barley-Oat") +
+
+p_bep_4 <- make_bep_panel(npv_all_4, "Swheat-Canola-Barley-Oat") +
   common_bep_x +
   theme(plot.title = element_text(face = "plain", hjust = 0.5, size = 16))
 
-p_bep_2 <- make_bep_panel(npv_all_2, "SW-Canola") +
+p_bep_2 <- make_bep_panel(npv_all_2, "Swheat-Canola") +
   common_bep_x +
   theme(plot.title = element_text(face = "plain", hjust = 0.5, size = 16))
 
@@ -716,7 +750,7 @@ bep_figure <- bep_figure +
     title = top_title,
     theme = theme(
       plot.title = element_text(hjust = 0.5, face = "plain", size = 16),
-      plot.margin = margin(10, 12, 5.5, 5.5)  # extra top room for the title
+      plot.margin = margin(10, 12, 5.5, 5.5)
     )
   )
 

@@ -166,7 +166,7 @@ s$system$McElroy.R2
 
 # --- Simulation settings (unchanged) ---
 n_periods <- 20
-n_sim     <- 1000
+n_sim     <- 10000
 n_crops   <- 4
 
 simulated_prices <- array(NA, dim = c(n_periods, n_crops, n_sim))

@@ -1,5 +1,5 @@
 # ============================================================
-# 07_farm_baseline_npv_bep.R
+# 07_bep_negativenpvexcluded_scenario.R
 # ============================================================
 
 # ---- 1. Packages and seed --------------------------------------------------
@@ -18,7 +18,7 @@ coverage_level <- 0.80
 machinery_cost_per_acre <- 73.04
 baseline_discount_rate <- 0.10
 
-carbon_stock_tC_per_ha <- 1180
+carbon_stock_tC_per_ha <- 394
 decay_rate <- 0.02
 
 

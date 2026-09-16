@@ -1,5 +1,5 @@
 # ============================================================
-# 03_farm_npv_simulation.R
+# 05_farm_npv_simulation.R
 # Stochastic farm NPV and break-even carbon price analysis
 # Four-crop and spring wheat-canola rotations
 # ============================================================
@@ -25,7 +25,7 @@ total_acres <- 1920
 coverage_level <- 0.80
 machinery_cost_per_acre <- 73.04
 carbon_stock_tC_per_ha <- 394
-decay_rate <- 0.05
+decay_rate <- 0.02
 
 scenario_levels <- c(
   "Baseline",

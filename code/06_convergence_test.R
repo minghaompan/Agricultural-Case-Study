@@ -11,7 +11,7 @@ library(tidyr)
 
 # ---- 2. Run farm simulation ------------------------------------------------
 
-source("updated code/05_farm_npv_simulation.R")
+source("code/05_farm_npv_simulation.R")
 
 
 # ---- 3. Convergence settings -----------------------------------------------

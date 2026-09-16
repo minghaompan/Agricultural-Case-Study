@@ -25,7 +25,7 @@ total_acres <- 1920
 coverage_level <- 0.80
 machinery_cost_per_acre <- 73.04
 carbon_stock_tC_per_ha <- 394
-decay_rate <- 0.02
+decay_rate <- 0.05
 
 scenario_levels <- c(
   "Baseline",
@@ -430,13 +430,13 @@ print(bep_summary)
 
 write.csv(
   npv_summary,
-  "results/NPV_summary.csv",
+  "data/NPV_summary.csv",
   row.names = FALSE
 )
 
 write.csv(
   bep_summary,
-  "results/BEP_summary.csv",
+  "data/BEP_summary.csv",
   row.names = FALSE
 )
 
@@ -713,7 +713,7 @@ print(bep_figure)
 ggsave(
   filename = "figures/Figure_NPV_rotations.png",
   plot = npv_figure,
-  width = 180,
+  width = 220,
   height = 185,
   units = "mm",
   dpi = 600,
